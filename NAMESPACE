@@ -3,6 +3,7 @@
 export(run_app)
 import(bslib)
 import(ggcyto)
+import(ggplot2)
 import(openCyto)
 import(shiny)
 import(shinyFiles)

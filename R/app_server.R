@@ -9,6 +9,7 @@
 #' @importFrom fs path_home
 #' @import ggcyto
 #' @import openCyto
+#' @import ggplot2
 #' @importFrom shinyWidgets updateProgressBar
 #' @noRd
 app_server <- function(input, output, session) {
@@ -28,17 +29,40 @@ app_server <- function(input, output, session) {
     }
   })
 
-  check_peacoq = reactiveVal(0)
+  check_peacoq = reactiveVal(1)
+  check_gated = reactiveVal(0)
 
   observeEvent(output_path(), {
     req(output_path())
+
+    #folder gated files
+    data_dir = paste0(output_path(),'/Gating/Data/')
+    files_gat <- list.files(data_dir, full.names = TRUE)
 
     #folder peacoQ
     dir_selected <- paste0(output_path(),"/PeacoQC_results/fcs_files")
     files <- list.files(dir_selected, full.names = TRUE)
 
-    if (length(files) > 0) {
-      check_peacoq(0)
+
+    if (length(files_gat) > 0) {
+      check_peacoq(1)
+      check_gated(1)
+      showModal(
+        modalDialog(
+          title = "Warning",
+          paste0("Detected ", length(files_gat), " file in: ", data_dir,
+                 "This means you have already performed the gating step. What do you want to do?"),
+          footer = tagList(
+            modalButton("Change folder"),
+            actionButton("confirm_load_gat", "Load them")
+          ),
+          easyClose = FALSE
+        )
+      )
+
+    } else if (length(files) > 0){
+      check_gated(0)
+      check_peacoq(1)
       showModal(
         modalDialog(
           title = "Warning",
@@ -53,18 +77,64 @@ app_server <- function(input, output, session) {
       )
 
     } else {
-      check_peacoq(1)
+      check_peacoq(0)
       sendmessages(paste0("Output folder set to: ",output_path()), type = "info")
     }
 
   })
 
-  #true se devo elaborare i dati
-  output$check_peacoq = reactive({
-    req(check_peacoq())
-    check_peacoq()==1
+
+
+
+
+  ########## true se devo elaborare i dati gated
+  output$compute_gated = reactive({
+    req(check_gated())
+    check_gated()==0
+  })
+  outputOptions(output, "compute_gated", suspendWhenHidden = FALSE)
+
+
+  step2 <- reactiveValues(data = NULL,
+                          gate_settings = data.frame(sample = character(), n_in = double(), n_gated = double(), VarX = character(), VarY = character(),
+                                                     minRangeX = double(), maxRangeX = double(), minRangeY = double(), maxRangeY = double()))
+
+
+  observeEvent(input$confirm_load_gat, {
+    req(output_path())
+    removeModal()
+
+    data_dir = paste0(output_path(),'/Gating/Data/')
+    files_gat <- list.files(data_dir, full.names = TRUE)
+
+    nfiles =length(files_gat)
+
+    percentage <- 0
+    withProgress(message = "Reading data...", value=0, {
+      results = lapply(files_gat, function(i){
+        percentage <<- percentage + 1/nfiles*100
+        incProgress(1/nfiles, detail = paste0("Progress: ",round(percentage,0), " %"))
+        cat("Processing file:", i, "\n")  # Messaggio per tracciare il progresso
+        flowCore::read.FCS(i)
+      })
     })
-  outputOptions(output, "check_peacoq", suspendWhenHidden = FALSE)
+
+    names(results) <- basename(files_gat)
+    step2$data <- results
+
+    sendmessages(paste(nfiles, "files successfully loaded."), type = "success")
+  })
+
+
+
+
+
+  #true se devo elaborare i dati peacoq
+  output$compute_peacoq = reactive({
+    req(check_peacoq())
+    check_peacoq()==0
+    })
+  outputOptions(output, "compute_peacoq", suspendWhenHidden = FALSE)
 
 
   step1 <- reactiveVal(NULL)
@@ -89,12 +159,9 @@ app_server <- function(input, output, session) {
     })
 
     names(results) <- basename(files)
-
-    # salva dentro il reactive
     step1(results)
 
-    sendmessages("Files loaded successfully", type = "success")
-
+    sendmessages(paste(nfiles, "files successfully loaded."), type = "success")
   })
 
 
@@ -155,9 +222,9 @@ app_server <- function(input, output, session) {
   })
 
 
-  #se step1 è stato caricato. true if null
+  #se step1 è stato caricato. false if null
   output$check_step1 = reactive(
-    return(is.null(step1()))
+    return(!is.null(step1()))
   )
   outputOptions(output, "check_step1", suspendWhenHidden = FALSE)
 
@@ -167,20 +234,6 @@ app_server <- function(input, output, session) {
 
   currentSample <- reactiveVal(1)
 
-
-  # output$text_curr_sampl = renderUI({
-  #   req(step1())
-  #   fluidRow(
-  #     column(9,h4(names(step1()[currentSample()]))),
-  #     column(3, h3(paste0("N° sample:")),
-  #            h3(paste0(currentSample(),"/",length(step1()))))
-  #   )
-  # })
-
-
-  step2 <- reactiveValues(data = NULL,
-                          gate_settings = data.frame(sample = character(), n_in = double(), n_gated = double(), VarX = character(), VarY = character(),
-                                                     minRangeX = double(), maxRangeX = double(), minRangeY = double(), maxRangeY = double()))
 
 
   step1_sample <- reactiveVal(NULL)
@@ -222,7 +275,8 @@ app_server <- function(input, output, session) {
     )
 
     autoplot(step1_sample(), x = input$first_var_gat, y = input$second_var_gat, bins=100)+
-      ggtitle(paste("Sample", currentSample()))
+      labs(title=paste("Sample", currentSample()))
+
 
   })
 
@@ -308,6 +362,8 @@ app_server <- function(input, output, session) {
 
     step2$gate_settings <- rbind(step2$gate_settings, gate_settings)
 
+    print(step2$gate_settings)
+
     sendmessages("Gating setting applied for the current sample.","info")
 
   })
@@ -338,8 +394,7 @@ app_server <- function(input, output, session) {
     removeModal()
     currentSample(currentSample() + 1)
 
-    step2$data <- append(step2$data, step1_sample())
-
+    step2$data[[step1_sample()@description$GUID]] <- step1_sample()
 
     data_dir = paste0(output_path(),'/Gating/Data/')
     if (!dir.exists(data_dir)) {

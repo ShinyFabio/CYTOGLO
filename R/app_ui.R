@@ -25,7 +25,7 @@ app_ui <- function(request) {
       nav_panel("Upload & Preprocessing",
                 glide(
                   screen(
-                    # next_condition = "output.check_step1 == false",
+                    next_condition = "output.check_step1 == true & output.compute_gated == true",
                     h4("Step 1. Read data from CytOF"),
                     fluidPage(
 
@@ -38,7 +38,7 @@ app_ui <- function(request) {
 
                       ),
                       conditionalPanel(
-                        condition = "output.check_peacoq == true",style = "display: none",
+                        condition = "output.compute_peacoq == true",style = "display: none",
                         fluidRow(
                           h4("Select the data folder"),
                           shinyFiles::shinyDirButton("datafolder",style ="padding:10px; font-size:110%;",
