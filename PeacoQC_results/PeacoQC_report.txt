@@ -1,3 +1,0 @@
-Filename	Nr. Measurements before cleaning	Nr. Measurements after cleaning	% Full analysis	Analysis by	% IT analysis	% MAD analysis	% Consecutive cells	MAD	IT limit	Consecutive bins	Events per bin	Increasing/Decreasing channel
-c20_ID12 NASH_Patient pool_16plex_tube 1_Processed_Concatenated.fcs	134957	112457	16.6719770000815	all	0	16.6719770000815	0	6	0.6	5	1000	Increasing channel
-c01_ID1 NAFL_Patient pool_16plex_tube 1_Processed_Concatenated.fcs	257847	212847	17.4522100315303	all	7.85349451418865	9.30784535014951	2.0360911703452	6	0.6	5	1500	Increasing channel

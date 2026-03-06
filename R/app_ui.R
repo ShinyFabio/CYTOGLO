@@ -82,11 +82,11 @@ app_ui <- function(request) {
                       column(4,plotOutput("plot_gating",height = "500px")),
                       column(
                         2,
-                        actionButton("bttn_next_gat_step2",style ="padding:10px; font-size:110%;", "Next gating", icon("circle-chevron-right")),
+                        actionButton("bttn_next_gat_step2",style ="padding:10px; font-size:110%;", "Apply & Next gating", icon("circle-chevron-right")),
                         br(),
                         br(),
                         br(),br(),
-                        actionButton("bttn_next_sampl_step2",style ="padding:10px; font-size:110%;", "Next sample", icon("floppy-disk"))
+                        actionButton("bttn_next_sampl_step2",style ="padding:10px; font-size:110%;", "Save & Next sample", icon("floppy-disk"))
                       )
                     )
 

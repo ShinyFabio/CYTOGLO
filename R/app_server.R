@@ -275,7 +275,7 @@ app_server <- function(input, output, session) {
     )
 
     autoplot(step1_sample(), x = input$first_var_gat, y = input$second_var_gat, bins=100)+
-      labs(title=paste("Sample", currentSample()))
+      labs(title=paste("Sample", step1_sample()@description$GUID))
 
 
   })
@@ -299,7 +299,7 @@ app_server <- function(input, output, session) {
 
 
     autoplot(step1_sample(), x = input$first_var_gat, y = input$second_var_gat, bins=100)+ geom_gate(g)+geom_stats() +
-      labs(title=paste("Sample", currentSample(),"after gating"))
+      labs(title=paste("Sample", step1_sample()@description$GUID,"after gating"))
 
   })
 
@@ -328,7 +328,7 @@ app_server <- function(input, output, session) {
     removeModal()
 
     #folder plot output
-    plots_dir = paste0(output_path(),'/Gating/Plots/Sample_',currentSample(),"/")
+    plots_dir = paste0(output_path(),'/Gating/Plots/',step1_sample()@description$GUID,"/")
     if (!dir.exists(plots_dir)) {
       dir.create(plots_dir,recursive = TRUE)
     }
@@ -344,7 +344,7 @@ app_server <- function(input, output, session) {
     }
 
     p = autoplot(step1_sample(), x = input$first_var_gat, y = input$second_var_gat, bins=100)+ geom_gate(g)+geom_stats() +
-      labs(title=paste("Sample", currentSample()))
+      labs(title=paste("Sample", step1_sample()@description$GUID))
 
     ggsave(filename = paste0(plots_dir, input$first_var_gat,"_",input$second_var_gat,"_sample_", currentSample(), ".png"), plot = p, width = 8, height = 6)
 
