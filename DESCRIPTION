@@ -11,6 +11,7 @@ Imports:
     shiny,
     shinyFiles,
     shinyglide,
+    shinyWidgets,
     bslib,
     flowCore,
     PeacoQC,
