@@ -11,6 +11,7 @@
 #' @importFrom htmltools HTML
 #'
 
+#in alternativa provare con toast di bslib
 
 sendmessages = function(text,
                         type,

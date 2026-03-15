@@ -17,8 +17,9 @@ Imports:
     PeacoQC,
     ggcyto,
     openCyto,
-    fs
+    fs,
+    CATALYST
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.3.3
-biocViews: flowCore, PeacoQC, ggcyto, openCyto
+biocViews: flowCore, PeacoQC, ggcyto, openCyto, CATALYST
