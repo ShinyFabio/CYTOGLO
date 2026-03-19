@@ -4,7 +4,9 @@
 #'     DO NOT REMOVE.
 #' @import shiny
 #' @import shinyFiles
-#' @importFrom flowCore read.FCS Subset write.FCS flowSet
+#' @importFrom shinyjs enable disable
+#' @import waiter
+#' @importFrom flowCore read.FCS Subset write.FCS flowSet keyword
 #' @importFrom PeacoQC PeacoQC
 #' @importFrom fs path_home
 #' @import ggcyto
@@ -12,11 +14,13 @@
 #' @import ggplot2
 #' @importFrom shinyWidgets updatePickerInput show_alert
 #' @importFrom DT renderDT datatable
-#' @importFrom CATALYST prepData
+#' @importFrom CATALYST prepData plotCounts filterSCE cluster plotExprHeatmap plotDR runDR
 #' @importFrom readxl read_excel
 #' @noRd
 app_server <- function(input, output, session) {
   # Your application server logic
+
+  options(shiny.maxRequestSize = 2000 * 1024^2)
 
 
   volumes = c(Home = fs::path_home(), shinyFiles::getVolumes()())
@@ -39,6 +43,7 @@ app_server <- function(input, output, session) {
 
   sce_data <- reactiveVal(NULL)
 
+
   #import SCE
   observe({
     req(input$filesce_input)
@@ -47,12 +52,28 @@ app_server <- function(input, output, session) {
       shinyWidgets::show_alert("Invalid file!", "Please upload a .rds file", type = "error")
     }
     validate(need(ext == "rds", "Invalid file! Please upload a .rds file"))
+    sendmessages("Loading SingleCellExperiment...",type="gear")
     file = readRDS(file = input$filesce_input$datapath)
     if(!is.null(file)){
       sendmessages("SingleCellExperiment successfully loaded!",type="success")
       sce_data(file)
     }
   })
+
+
+  observeEvent(sce_data(),{
+    req(sce_data())
+    if("cluster_id" %in% colnames(sce_data()@colData)){
+      sendmessages("Clustering detected in the SCE object.", type = "info")
+    }
+    if(length(SingleCellExperiment::reducedDimNames(sce_data()))>0){
+      sendmessages(paste("Dimension reduction", paste0(SingleCellExperiment::reducedDimNames(sce_data()),collapse=", "),"detected in the SCE object."), type = "info")
+    }
+  }, once = TRUE)
+
+
+
+
 
 
   shinyFiles::shinyDirChoose(input, 'datafolder', roots = volumes, session = session)
@@ -127,8 +148,37 @@ app_server <- function(input, output, session) {
       Gating = as.character(icon("times-circle", style = "color: #d9534f;")),
       stringsAsFactors = FALSE
     )
+
+    ngated <- 0
+    npeaco <- 0
+    # 2. Ciclo di aggiornamento
+    # Assumendo che datafcs$data sia la lista dei flowFrame
+    for (i in seq_along(datafcs$data)) {
+
+      ff <- datafcs$data[[i]]
+      kw <- keyword(ff) # Estraiamo le keyword una volta sola per efficienza
+
+      # Controllo PeacoQC
+      if (!is.null(kw$PEACOQC_PROCESSED) && kw$PEACOQC_PROCESSED == "TRUE") {
+        df$PeacoQC[i] <- as.character(icon("circle-check", style = "color: #28a745;"))
+        npeaco <- npeaco+1
+      }
+
+      # Controllo Gating
+      if (!is.null(kw$GATED) && kw$GATED == "TRUE") {
+        df$Gating[i] <- as.character(icon("circle-check", style = "color: #28a745;"))
+        ngated <- ngated+1
+      }
+    }
+
+    if(sum(ngated,npeaco)>0){
+      sendmessages(sprintf(
+        "%d file%s already processed with PeacoQC and %d file%s already gated. See the table in Step 3.",
+        npeaco,ifelse(npeaco == 1, "", "s"),ngated, ifelse(ngated == 1, "", "s")), type = "info",duration=5)
+    }
+
     stato_campioni(df)
-  },once = TRUE)
+  }, once = TRUE)
 
   ######################################################### STEP 2 PEACOQC ###########################################
 
@@ -159,7 +209,7 @@ app_server <- function(input, output, session) {
     req(datafcs$data)
 
     if(is.null(input$picker_peacoqc)){
-      sendmessages(title = "Select at least one sample before applying the correction.", type = "danger")
+      sendmessages("Select at least one sample before applying the correction.", type = "danger")
       return(NULL)
     }
 
@@ -195,6 +245,9 @@ app_server <- function(input, output, session) {
           percentage <<- percentage + 1/length(input$picker_peacoqc)*100
           incProgress(1/length(input$picker_peacoqc), detail = paste0("Progress: ",round(percentage,0), " %"))
           ff_pulito <- peacoqc_result$FinalFF
+
+          flowCore::keyword(ff_pulito)$PEACOQC_PROCESSED <- "TRUE"
+
           col_names <- flowCore::colnames(ff_pulito)
 
           ff_pulito[, col_names != "Original_ID"] ####ho rimosso Original_ID perchè poi x creare SCE se non ho fatto peacoQC ovunque va in errore
@@ -302,7 +355,8 @@ app_server <- function(input, output, session) {
     updateSelectInput(session, "second_var_gat", choices = setNames(nl$name, nl$desc), selected = nl$name[2])
   })
 
-  observeEvent(input$first_var_gat,{
+  observe({
+    req(input$first_var_gat)
     req(step1_sample())
     tt = as.data.frame(step1_sample()@exprs)[[input$first_var_gat]]
     qnts = unname(quantile(tt, probs = c(0.25, 0.75), na.rm = TRUE))
@@ -310,7 +364,8 @@ app_server <- function(input, output, session) {
     updateSliderInput(session, "slider_x_gat", min = floor(min(tt)),  max = ceiling(max(tt)), value = qnts)
   })
 
-  observeEvent(input$second_var_gat,{
+  observe({
+    req(input$second_var_gat)
     req(step1_sample())
     tt = as.data.frame(step1_sample()@exprs)[[input$second_var_gat]]
     qnts = unname(quantile(tt, probs = c(0.25, 0.75), na.rm = TRUE))
@@ -321,7 +376,7 @@ app_server <- function(input, output, session) {
   # PLOT SENZA GATING
   output$plot_gating_before = renderPlot({
     req(step1_sample(), input$first_var_gat)
-    if(input$nvars_gating != 'one variable') req(input$second_var_gat)
+    if(input$nvars_gating != 'One variable') req(input$second_var_gat)
 
     build_gating_plot(
       sample = step1_sample(), n_vars = input$nvars_gating,
@@ -372,9 +427,6 @@ app_server <- function(input, output, session) {
 
 
 
-
-
-
   observeEvent(input$confirm_next_gat_vars, {
     req(step1_sample(), input$first_var_gat)
     removeModal()
@@ -407,7 +459,7 @@ app_server <- function(input, output, session) {
     )
 
     # 3. Logic for Gate Object (g) and Filename
-    if (input$nvars_gating == 'one variable') {
+    if (input$nvars_gating == 'One variable') {
       req(input$slider_1var_gat)
       cut_val <- quantile(step1_sample()@exprs[, input$first_var_gat], input$slider_1var_gat)
       g <- rectangleGate(.gate = setNames(list(c(cut_val, Inf)), input$first_var_gat))
@@ -438,6 +490,7 @@ app_server <- function(input, output, session) {
 
     # 5. Data Subsetting
     gated_data <- flowCore::Subset(step1_sample(), g)
+    flowCore::keyword(gated_data)$GATED <- "TRUE"
 
     # 6. Build Gate Settings DataFrame
     new_settings <- data.frame(
@@ -445,14 +498,14 @@ app_server <- function(input, output, session) {
       n_in             = nrow(step1_sample()@exprs),
       n_gated          = nrow(gated_data@exprs),
       VarX             = input$first_var_gat,
-      VarY             = if(input$nvars_gating == 'two variables') input$second_var_gat else NA,
-      type_gate        = if(input$nvars_gating == 'two variables') input$type_gating else NA,
-      minRangeX        = if(input$nvars_gating == 'two variables' && input$type_gating == "Rectangular") min(input$slider_x_gat) else NA,
-      maxRangeX        = if(input$nvars_gating == 'two variables' && input$type_gating == "Rectangular") max(input$slider_x_gat) else NA,
-      minRangeY        = if(input$nvars_gating == 'two variables' && input$type_gating == "Rectangular") min(input$slider_y_gat) else NA,
-      maxRangeY        = if(input$nvars_gating == 'two variables' && input$type_gating == "Rectangular") max(input$slider_y_gat) else NA,
-      quantile_ellipse = if(input$nvars_gating == 'two variables' && input$type_gating != "Rectangular") input$slider_ellipse_gat else NA,
-      quantile_1var    = if(input$nvars_gating == 'one variable') input$slider_1var_gat else NA,
+      VarY             = if(input$nvars_gating == 'Two variables') input$second_var_gat else NA,
+      type_gate        = if(input$nvars_gating == 'Two variables') input$type_gating else NA,
+      minRangeX        = if(input$nvars_gating == 'Two variables' && input$type_gating == "Rectangular") min(input$slider_x_gat) else NA,
+      maxRangeX        = if(input$nvars_gating == 'Two variables' && input$type_gating == "Rectangular") max(input$slider_x_gat) else NA,
+      minRangeY        = if(input$nvars_gating == 'Two variables' && input$type_gating == "Rectangular") min(input$slider_y_gat) else NA,
+      maxRangeY        = if(input$nvars_gating == 'Two variables' && input$type_gating == "Rectangular") max(input$slider_y_gat) else NA,
+      quantile_ellipse = if(input$nvars_gating == 'Two variables' && input$type_gating != "Rectangular") input$slider_ellipse_gat else NA,
+      quantile_1var    = if(input$nvars_gating == 'One variable') input$slider_1var_gat else NA,
       side_removed = input$rl_1var_gat,
       stringsAsFactors = FALSE
     )
@@ -485,13 +538,9 @@ app_server <- function(input, output, session) {
         )
       )
     }else{
-
       show_alert(title = "Warning !", text = "No gating has been applied to this sample. Nothing will be saved.
           To apply a gating, first click the 'Apply & Next Gating' button.", type = "warning")
-
     }
-
-
 
   })
 
@@ -626,8 +675,25 @@ app_server <- function(input, output, session) {
       shinyWidgets::show_alert("Invalid file!", "Please upload a csv or Excel file", type = "error")
       return(NULL)
     }
-    paneldata(panel)
-    sendmessages("Panel data file loaded correctly.", "success")
+
+    if(all(c("fcs_colname", "antigen", "marker_class") %in% colnames(panel))){
+      paneldata(panel)
+      sendmessages("Panel data file loaded correctly.", "success")
+    }else{
+
+      shinyWidgets::show_alert("Invalid file! Your panel data is missing required columns: 'fcs_colname', 'antigen', or 'marker_class'.
+                               Please update the file before proceeding.", type = "error")
+      return()
+
+    }
+
+    # a data.frame containing, for each channel, its column name in the input data, targeted protein marker, and (optionally)
+    # class ("type", "state", or "none").
+    # panel_cols = list(channel = "fcs_colname", antigen = "antigen", class = "marker_class"),
+
+    # a names list specifying the panel column names that contain channel names, targeted protein markers, and (optionally) marker classes.
+    # When only some panel_cols deviate from the defaults, specifying only these is sufficient.
+
   })
 
 
@@ -646,38 +712,121 @@ app_server <- function(input, output, session) {
       shinyWidgets::show_alert("Invalid file!", "Please upload a csv or Excel file", type = "error")
       return(NULL)
     }
-    md$sample_id <- factor(md$sample_id, levels = md$sample_id[order(md$condition)])
-    md$condition <- factor(md$condition)
 
-    sendmessages("Metadata file loaded correctly.", "success")
-    metadata(md)
+    if(all(c("file_name", "sample_id", "patient_id", "condition") %in% colnames(md))){
+      md$sample_id <- factor(md$sample_id, levels = md$sample_id[order(md$condition)])
+      md$condition <- factor(md$condition)
+      sendmessages("Metadata file loaded correctly.", "success")
+      metadata(md)
+    }else{
+      shinyWidgets::show_alert("Invalid file! Your metadata file is missing required columns: 'file_name', 'sample_id', 'patient_id', or 'condition'.
+                               Please update the file before proceeding.", type = "error")
+      return()
+
+    }
+
+    # md_cols = list(file = "file_name", id = "sample_id", factors = c("condition", "patient_id"))
+    # a table with column describing the experiment. An exemplary metadata table could look as follows:
+    #   file_name: the FCS file name
+    # sample_id: a unique sample identifier
+    # patient_id: the patient ID
+    # condition: brief sample description (e.g. reference/stimulated, healthy/diseased)
   })
 
+
+  #check data correctly loaded
+  output$check_panel_and_metadata = reactive(
+    return(all(!is.null(metadata()),!is.null(paneldata())))
+  )
+  outputOptions(output, "check_panel_and_metadata", suspendWhenHidden = FALSE)
 
 
   observeEvent(input$create_sce,{
     req(datafcs$data, paneldata(),metadata())
     #create flowset
 
-    # saveRDS(datafcs$data,"fcs_pro.rds")
+    sendmessages("Start creating SingleCellExperiment file...",type="gears")
+
+    w <- Waiter$new(html =  tagList(
+      spin_flower(), # Una bella animazione a fiore
+      h3("Creating SingleCellExperiment file...", style = "color:white;")
+    ), color = "rgba(0, 0, 0, 0.5)") # Nero al 50% di trasparenza)
+
+    shinyjs::disable("create_sce") # Disabilita subito il tasto
+    w$show()
+
+    on.exit({
+      w$hide()
+      shinyjs::enable("create_sce")
+    }, add = TRUE)
+
 
     fcs_pro <- flowCore::flowSet(datafcs$data)
 
-
-    #crea oggetto su cui lavorerai
     sce.orig <- CATALYST::prepData(fcs_pro, paneldata(), metadata(), features = paneldata()$fcs_colname)
+
     sendmessages("SingleCellExperiment file created!", "success")
-    sendmessages("Now you can download it or proceed with the analysis.", "info")
+    # sendmessages("Now you can download it or proceed with the analysis.", "info")
 
     sce_data(sce.orig)
   })
-
 
   #check data correctly loaded
   output$check_sce_data = reactive(
     return(!is.null(sce_data()))
   )
   outputOptions(output, "check_sce_data", suspendWhenHidden = FALSE)
+
+
+
+  #### Filter SCE
+  output$plot_filt_sce = renderPlot({
+    req(sce_data())
+    CATALYST::plotCounts(sce_data(), group_by = "patient_id", color_by = "condition")
+  })
+
+  observeEvent(input$show_modal_filtSCE,{
+    req(sce_data())
+    showModal(
+      modalDialog(
+        title = "Filter SCE",
+        fluidRow(
+          column(9, plotOutput("plot_filt_sce")),
+          column(3, selectInput("pat_filt_sce","Samples to remove", choices = levels(sce_data()@colData$patient_id),multiple =TRUE),
+                 br(),
+                 div(style="text-align:center;",actionButton("run_filt_pat_sce","Update SCE!", icon("gear"),style ="padding:10px; font-size:130%;")))
+        ),
+        size = "xl"
+      )
+    )
+  })
+
+  observeEvent(input$run_filt_pat_sce,{
+    if(length(input$pat_filt_sce)>0){
+      showModal(
+        modalDialog(
+          title = "Warning",
+          paste("Do you want to remove the samples and update the SCE?"),
+          footer = tagList(modalButton("No"),  actionButton("confirm_filt_pat_sce", "Yes")),
+          easyClose = FALSE
+        )
+      )
+    }else{
+      sendmessages("No sample selected for filtering.",type="danger")
+    }
+
+  })
+
+  observeEvent(input$confirm_filt_pat_sce, {
+    req(sce_data())
+
+    removeModal()
+
+    sce<- CATALYST::filterSCE(sce_data(), !patient_id %in% input$pat_filt_sce) ## ELIMINO CAMPIONI
+    sendmessages(paste("Removed",length(input$pat_filt_sce),"samples from the SCE."),type="success")
+    sce_data(sce)
+  })
+
 
 
   output$download_sce <- downloadHandler(
@@ -687,13 +836,238 @@ app_server <- function(input, output, session) {
     },
     # This function should write data to a file given to it by the argument 'file'.
     content = function(file) {
+
+      w <- Waiter$new(html =  tagList(
+        spin_flower(), # Una bella animazione a fiore
+        h3("Preparing the .rds file... The download will start shortly. Please wait and do not refresh the page.", style = "color:white;")
+      ), color = "rgba(0, 0, 0, 0.5)") # Nero al 50% di trasparenza)
+
+      shinyjs::disable("download_sce") # Disabilita subito il tasto
+      w$show()
+
+      on.exit({
+        w$hide()
+        shinyjs::enable("download_sce")
+      }, add = TRUE)
+
+
       saveRDS(sce_data(), file)
     }
   )
 
 
 
+########################################## CLUSTERING #######################################################
 
+  run_clustering_impl <- function() {
+    req(sce_data())
+    sendmessages("Start clustering...", type = "gear")
+
+    w <- Waiter$new(html = tagList(
+      spin_flower(),
+      h3("Running clustering...", style = "color:white;")
+    ), color = "rgba(0, 0, 0, 0.5)")
+
+    shinyjs::disable("run_cluster")
+    w$show()
+    on.exit({
+      w$hide()
+      shinyjs::enable("run_cluster")
+    }, add = TRUE)
+
+    sce <- CATALYST::cluster(sce_data(), features = "state", xdim = 10, ydim = 10, maxK = 20, seed = 1234)
+
+    sendmessages("Clustering completed.", type = "success")
+    sce_data(sce)
+    sendmessages("The SCE object is updated.", type = "info")
+  }
+
+
+  observeEvent(input$run_cluster,{
+    req(sce_data())
+
+    if ("cluster_id" %in% colnames(sce_data()@colData)) {
+      showModal(modalDialog(
+        title = "Clustering already detected",
+        "It seems that clustering has already been performed. Do you want to overwrite it?",
+        footer = tagList(
+          modalButton("Cancel"),
+          actionButton("confirm_cluster", "Yes, overwrite", class = "btn-danger")
+        ),
+        easyClose = TRUE
+      ))
+    }else{
+      run_clustering_impl()
+    }
+  })
+
+  observeEvent(input$confirm_cluster, {
+    req(sce_data())
+    removeModal()
+    run_clustering_impl()
+  })
+
+
+  #se step1 è stato caricato. false if null
+  output$check_clusterdata = reactive({
+    req(sce_data())
+    return("cluster_id" %in% colnames(sce_data()@colData))
+  })
+  outputOptions(output, "check_clusterdata", suspendWhenHidden = FALSE)
+
+
+  output$down_cluster <- downloadHandler(
+    filename = function() {
+      # Use the selected dataset as the suggested file name
+      paste0("SCE_clustered_", Sys.Date(), ".rds")
+    },
+    # This function should write data to a file given to it by the argument 'file'.
+    content = function(file) {
+
+      w <- Waiter$new(html =  tagList(
+        spin_flower(),
+        h3("Preparing the .rds file... The download will start shortly. Please wait and do not refresh the page.", style = "color:white;")
+      ), color = "rgba(0, 0, 0, 0.5)") # Nero al 50% di trasparenza
+
+      shinyjs::disable("down_cluster")
+      w$show()
+
+      on.exit({
+        w$hide()
+        shinyjs::enable("down_cluster")
+      }, add = TRUE)
+
+      saveRDS(sce_data(), file)
+    }
+  )
+
+
+
+  output$heatmap_clust = renderPlot({
+    req(sce_data())
+    validate(need("cluster_id" %in% colnames(sce_data()@colData), "Clustering is required."))
+
+    CATALYST::plotExprHeatmap(sce_data(), features = "state",
+                              by = "cluster_id", k = input$metak_clust,
+                              bars = input$bar_heatmap, perc = input$perc_heatmap, fun = input$fun_clust)
+  })
+
+
+
+
+  ########################################## DIMENSIONALITY REDUCTION #######################################################
+
+
+  run_pca_impl <- function() {
+    req(sce_data())
+    sendmessages("Start dimension reduction...", type = "gear")
+
+    w <- Waiter$new(html = tagList(
+      spin_flower(),
+      h3("Running dimension reduction...", style = "color:white;")
+    ), color = "rgba(0, 0, 0, 0.5)")
+
+    shinyjs::disable("run_pca")
+    w$show()
+    on.exit({
+      w$hide()
+      shinyjs::enable("run_pca")
+    }, add = TRUE)
+
+    sce <- CATALYST::runDR(sce_data(), dr = input$type_pca, cells = input$ncells_rd, features = "state")
+
+    sendmessages("Dimension reduction completed.", type = "success")
+    sce_data(sce)
+    sendmessages("The SCE object is updated.", type = "info")
+  }
+
+
+  observeEvent(input$run_pca,{
+    req(sce_data())
+
+    if(length(SingleCellExperiment::reducedDimNames(sce_data()))>0){
+      showModal(modalDialog(
+        title = "Dimension reduction already detected",
+        paste("It seems that a dimension reduction has already been performed (",SingleCellExperiment::reducedDimNames(sce_data()),
+              "). Do you want to overwrite it?"),
+        footer = tagList(
+          modalButton("Cancel"),
+          actionButton("confirm_pca", "Yes, overwrite", class = "btn-danger")
+        ),
+        easyClose = TRUE
+      ))
+    }else{
+      run_pca_impl()
+    }
+  })
+
+  observeEvent(input$confirm_cluster, {
+    req(sce_data())
+    removeModal()
+    run_pca_impl()
+  })
+
+
+  #se step1 è stato caricato. false if null
+  output$check_pcadata = reactive({
+    req(sce_data())
+    return(length(SingleCellExperiment::reducedDimNames(sce_data()))>0)
+  })
+  outputOptions(output, "check_pcadata", suspendWhenHidden = FALSE)
+
+
+  output$down_pca <- downloadHandler(
+    filename = function() {
+      # Use the selected dataset as the suggested file name
+      if("cluster_id" %in% colnames(sce_data()@colData)){
+        paste0("SCE_clustered_DR_", Sys.Date(), ".rds")
+      }else{
+        paste0("SCE_",paste0(SingleCellExperiment::reducedDimNames(sce_data()),collapse="_"),"_", Sys.Date(), ".rds")
+      }
+    },
+    # This function should write data to a file given to it by the argument 'file'.
+    content = function(file) {
+
+      w <- Waiter$new(html =  tagList(
+        spin_flower(),
+        h3("Preparing the .rds file... The download will start shortly. Please wait and do not refresh the page.", style = "color:white;")
+      ), color = "rgba(0, 0, 0, 0.5)") # Nero al 50% di trasparenza
+
+      shinyjs::disable("down_pca")
+      w$show()
+
+      on.exit({
+        w$hide()
+        shinyjs::enable("down_pca")
+      }, add = TRUE)
+
+      saveRDS(sce_data(), file)
+    }
+  )
+
+  observeEvent(sce_data(),{
+    req(sce_data())
+    if(length(SingleCellExperiment::reducedDimNames(sce_data()))>0){
+      updateSelectInput(session, "type_pca_plot",choices = SingleCellExperiment::reducedDimNames(sce_data()))
+    }
+    if(input$typevar_colorpca == "coldata"){
+      updateSelectInput(session, "var_colorpca", choices= colnames(sce_data()@colData))
+    }else{
+      updateSelectInput(session, "var_colorpca", choices= rownames(sce))
+    }
+    updateSelectInput(session, "facet_pcaplot", choices= c("None", colnames(sce_data()@colData)))
+
+  })
+
+  output$plot_pca = renderPlot({
+    req(sce_data(),input$facet_pcaplot,input$type_pca_plot,input$var_colorpca)
+    validate(need(length(SingleCellExperiment::reducedDimNames(sce_data()))>0, "Dimension reduction is required."))
+
+    facetvar <- if (input$facet_pcaplot == "None") { NULL } else { input$facet_pcaplot }
+
+    CATALYST::plotDR(sce_data(), input$type_pca_plot, color_by = input$var_colorpca, facet_by = facetvar, scale= input$scale_pcaplot)
+
+  })
 
 
 }
