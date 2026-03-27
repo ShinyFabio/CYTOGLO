@@ -156,7 +156,7 @@ app_server <- function(input, output, session) {
     for (i in seq_along(datafcs$data)) {
 
       ff <- datafcs$data[[i]]
-      kw <- keyword(ff) # Estraiamo le keyword una volta sola per efficienza
+      kw <- flowCore::keyword(ff) # Estraiamo le keyword una volta sola per efficienza
 
       # Controllo PeacoQC
       if (!is.null(kw$PEACOQC_PROCESSED) && kw$PEACOQC_PROCESSED == "TRUE") {
@@ -189,6 +189,11 @@ app_server <- function(input, output, session) {
     current_selected <- input$picker_peacoqc
     all_choices <- names(datafcs$data)
     updatePickerInput(session, "picker_peacoqc",choices = all_choices,selected = intersect(current_selected, all_choices))
+
+    nl = datafcs$data[[1]]@parameters@data
+    updatePickerInput(session, "channels_peacoqc",choices = unname(nl$name[is.na(nl$desc)]),selected = unname(nl$name[is.na(nl$desc)]))
+
+
   }, ignoreNULL = TRUE)
 
   shinyFiles::shinyDirChoose(input, 'outputfolder_peaco', roots = volumes, session = session)
@@ -202,6 +207,8 @@ app_server <- function(input, output, session) {
       NULL
     }
   })
+
+
 
 
 
@@ -227,6 +234,18 @@ app_server <- function(input, output, session) {
 
     file_list = names(datafcs$data)
 
+    if(!("Time" %in% input$channels_peacoqc)){
+      sendmessages("Select Time",type="danger")
+      return(NULL)
+    }
+    if(length(input$channels_peacoqc)<2){
+      sendmessages("Select at least two channels",type="danger")
+      return(NULL)
+    }
+
+    channl_sel = which(datafcs$data[[1]]@parameters@data$name %in% input$channels_peacoqc)
+
+
     percentage <- 0
     withProgress(message = "Processing data...", value=0, {
       results_2 = lapply(file_list, function(i){
@@ -235,9 +254,9 @@ app_server <- function(input, output, session) {
           cat("Processing sample:", i, "\n")
           peacoqc_result <- PeacoQC::PeacoQC(
             datafcs$data[[i]],
-            save_fcs =F,
+            save_fcs = F,
             output_directory = folder_plot, #da testare se salva i plot
-            channels = c(1:7), #da far scegliere "Time" "Event_length"       "Center"        "Width"     "Residual"       "Offset"    "Amplitude"
+            channels = channl_sel,
             IT_limit = 0.6,
             remove_zeros = input$remv_0_peaco, #da far scegliere
             time_units = 50000
@@ -1065,7 +1084,17 @@ app_server <- function(input, output, session) {
 
     facetvar <- if (input$facet_pcaplot == "None") { NULL } else { input$facet_pcaplot }
 
-    CATALYST::plotDR(sce_data(), input$type_pca_plot, color_by = input$var_colorpca, facet_by = facetvar, scale= input$scale_pcaplot)
+    p <- CATALYST::plotDR(sce_data(), input$type_pca_plot, color_by = input$var_colorpca, facet_by = facetvar, scale= input$scale_pcaplot)
+
+    p$layers[[1]]$aes_params$size <- 2  # <--- Imposta qui la dimensione dei punti
+
+    p + theme(
+      axis.title = element_text(size = 16, face = "bold"), # Titoli assi (X e Y)
+      axis.text = element_text(size = 14),                # Numeri sugli assi
+      legend.text = element_text(size = 14),              # Testo della legenda
+      legend.title = element_text(size = 16),             # Titolo della legenda
+      strip.text = element_text(size = 16)                # Testo dei facet (se presenti)
+    )
 
   })
 

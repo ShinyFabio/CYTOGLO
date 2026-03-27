@@ -240,6 +240,11 @@ app_ui <- function(request) {
                                                                  "If this is set to TRUE, the zero values will be removed before the peak detection step.
                                                                   They will not be indicated as 'bad' value. This is recommended when cleaning mass cytometry data."),
                                                          value = TRUE, status = "primary"),
+                            pickerInput("channels_peacoqc",
+                                        label = tooltip(trigger = list("Select the channels",icon("info-circle", style="color: #1f77b4;")),
+                                                "Channels in the flowframe on which peaks have to be determined. By default it uses all the technical channels."),
+                                        choices = c(), multiple = TRUE,
+                                        options = pickerOptions(container ="body",actionsBox = TRUE),width = "100%")
 
                           )),
                         column(3, actionButton("apply_peaco",style ="padding:10px; font-size:110%;", "Apply peacoQC", icon("gear")),
@@ -515,7 +520,7 @@ app_ui <- function(request) {
 
           column(
             9,
-            shinycssloaders::withSpinner(type=4,plotOutput("heatmap_clust", height = "500px"))
+            shinycssloaders::withSpinner(type=4,plotOutput("heatmap_clust", height = "80vh", width = "100%"))
           )
         )
 
@@ -528,7 +533,7 @@ app_ui <- function(request) {
                     3,
                     wellPanel(
                       p("Here you can perform a dimensionality reduction and update the SCE."),
-                      selectInput("type_pca","Type of dimension reduction", choices = c("UMAP", "TSNE", "PCA", "MDS", "DiffusionMap")),
+                      selectInput("type_pca","Type of dimension reduction to run", choices = c("UMAP", "TSNE", "PCA", "MDS", "DiffusionMap")),
                       sliderInput("ncells_rd",min = 100,  max = 10000, value = 1000,step = 100,width = "100%",
                                   label=tooltip(trigger = list("Cells per sample",icon("info-circle", style="color: #1f77b4;")),
                                           "The maximal number of cells per sample to use for dimension reduction.
@@ -554,7 +559,7 @@ app_ui <- function(request) {
                       )
                     ),
 
-                  column(9, shinycssloaders::withSpinner(type=4,plotOutput("plot_pca", height = "500px")))
+                  column(9, shinycssloaders::withSpinner(type=4,plotOutput("plot_pca", height = "80vh", width = "100%")))
 
                   )
                 ), #end of navpanel
