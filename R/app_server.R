@@ -14,8 +14,10 @@
 #' @import ggplot2
 #' @importFrom shinyWidgets updatePickerInput show_alert
 #' @importFrom DT renderDT datatable
-#' @importFrom CATALYST prepData plotCounts filterSCE cluster plotExprHeatmap plotDR runDR
+#' @importFrom CATALYST prepData plotCounts filterSCE cluster plotExprHeatmap plotDR runDR cluster_ids state_markers
 #' @importFrom readxl read_excel
+#' @importFrom scuttle aggregateAcrossCells
+#' @importFrom FSA dunnTest
 #' @noRd
 app_server <- function(input, output, session) {
   # Your application server logic
@@ -44,22 +46,36 @@ app_server <- function(input, output, session) {
   sce_data <- reactiveVal(NULL)
 
 
-  #import SCE
-  observe({
+  observeEvent(input$filesce_input, {
     req(input$filesce_input)
     ext <- tools::file_ext(input$filesce_input$name)
-    if(ext != "rds"){
+
+    if (ext != "rds") {
       shinyWidgets::show_alert("Invalid file!", "Please upload a .rds file", type = "error")
+      return()
     }
-    validate(need(ext == "rds", "Invalid file! Please upload a .rds file"))
-    sendmessages("Loading SingleCellExperiment...",type="gear")
-    file = readRDS(file = input$filesce_input$datapath)
-    if(!is.null(file)){
-      sendmessages("SingleCellExperiment successfully loaded!",type="success")
+
+    w <- Waiter$new(
+      html = tagList(
+        spin_flower(),
+        h3("Loading SingleCellExperiment into memory...", style = "color:white;"),
+        p("This may take a while depending on the file size.", style = "color:white;")
+      ),
+      color = "rgba(0, 0, 0, 0.7)"
+    )
+    w$show()
+
+    on.exit({
+      w$hide()
+    }, add = TRUE)
+
+    file <- readRDS(file = input$filesce_input$datapath)
+
+    if (!is.null(file)) {
       sce_data(file)
+      sendmessages("SingleCellExperiment successfully loaded!", type = "success")
     }
   })
-
 
   observeEvent(sce_data(),{
     req(sce_data())
@@ -971,6 +987,154 @@ app_server <- function(input, output, session) {
                               bars = input$bar_heatmap, perc = input$perc_heatmap, fun = input$fun_clust)
   })
 
+
+
+  ########################################## DIFFERENTIAL EXPRESSION ########################################################
+
+
+  observeEvent(sce_data(),{
+
+    updatePickerInput(session, "DE_picker_mark",choices = CATALYST::state_markers(sce_data()),selected = CATALYST::state_markers(sce_data()))
+  })
+
+
+  DE_results = eventReactive(input$run_DE,{
+    req(sce_data())
+    validate(need("cluster_id" %in% colnames(sce_data()@colData), "Clustering is required."))
+
+
+    clusters <- levels(CATALYST::cluster_ids(sce_data(), k = input$DE_selcluster))
+    shinyjs::disable("run_DE")
+
+    all_results <- list()
+
+    percentage <- 0
+     withProgress(message = "Computing Dunn's Test...", value=0, {
+      for (cl in clusters) {
+        sce1 <- filterSCE(sce_data(), cluster_id %in% cl, k = input$DE_selcluster)
+
+        agg <- scuttle::aggregateAcrossCells(sce1,
+                                             subset.row = input$DE_picker_mark,
+                                             ids = sce1$sample_id,
+                                             use.assay.type = "exprs",
+                                             statistics = input$type_aggr_DE) #far scegliere mean/median o quello che c'è
+
+        for (marker_to_check in input$DE_picker_mark) {
+          df_sub <- data.frame(
+            expr = assay(agg, "exprs")[marker_to_check, ],
+            group = sce1$condition[match(colnames(agg), sce1$sample_id)]
+          )
+
+          fit <- kruskal.test(expr ~ group, data = df_sub)
+
+          if (fit$p.value < input$expdes_thresh) {
+
+            suppressMessages(
+              dunn_res <- FSA::dunnTest(expr ~ group, data = df_sub, method = "bh")
+            )
+            posthoc_results <- dunn_res$res
+
+
+            means <- tapply(df_sub$expr, df_sub$group, mean)
+            group1 <- sapply(strsplit(posthoc_results$Comparison, " - "), "[", 1)
+            group2 <- sapply(strsplit(posthoc_results$Comparison, " - "), "[", 2)
+            delta <- round(unname(means[group1] - means[group2]),3)
+            log2fc <- round(unname(log2(means[group1] + 1e-6) - log2(means[group2] + 1e-6)),3)
+
+            all_results[[paste(cl, marker_to_check, sep = "_")]] <- data.frame(
+              cluster = cl,
+              marker = marker_to_check,
+              kruskal_p = round(fit$p.value,3),
+              comparison = posthoc_results$Comparison,
+              Z = round(posthoc_results$Z,3),
+              p_adj = round(posthoc_results$P.adj,3),
+              delta_exprs = delta,
+              Log2FC = log2fc
+            )
+
+          }
+        }
+        percentage <- percentage + 1/length(clusters) * 100
+        incProgress(1/length(clusters), detail = paste0("Progress: ", round(percentage,0), " %"))
+      }
+
+    })
+    final_results <- if(length(all_results) > 0) do.call(rbind, all_results) else NULL
+    final_results = dplyr::filter(final_results, p_adj < input$expdes_thresh)
+
+    on.exit({
+      shinyjs::enable("run_DE")
+    }, add = TRUE)
+
+
+    return(final_results)
+
+  })
+
+
+
+
+  output$check_DEdata = reactive({
+    req(DE_results())
+    return(!is.null(DE_results()))
+  })
+  outputOptions(output, "check_DEdata", suspendWhenHidden = FALSE)
+
+
+  output$DE_table = renderDT({
+    req(DE_results())
+    datatable(
+      DE_results(),
+      escape = FALSE,
+      selection = "single", # Permette di selezionare una sola riga alla volta
+      rownames = FALSE,
+      caption = 'Significative comparisons',
+      options = list(dom = 'tp', pageLength = 10,scrollX = TRUE) # 't' nasconde la barra di ricerca per pulizia
+    )
+  },server=T)
+
+
+
+  output$DE_boxplot = renderPlot({
+    req(DE_results(), sce_data())
+
+    validate(need(input$DE_table_rows_selected,"No sample selected. Click on a row in the table."))
+
+    selected_row <- input$DE_table_rows_selected
+
+
+    sce1 <- filterSCE(sce_data(), cluster_id %in% DE_results()$cluster[selected_row], k = input$DE_selcluster)
+
+    agg <- scuttle::aggregateAcrossCells(sce1,
+                                         subset.row = DE_results()$marker[selected_row],
+                                         ids = sce1$sample_id,
+                                         use.assay.type = "exprs",
+                                         statistics = input$type_aggr_DE)
+    df_sub <- data.frame(
+      expr = assay(agg, "exprs")[DE_results()$marker[selected_row],],
+      group = sce1$condition[match(colnames(agg), sce1$sample_id)]
+    )
+
+    # Boxplot per tutti i marker e cluster
+    ggplot(df_sub, aes(x = group, y = expr, fill = group)) +
+      geom_boxplot() +
+      geom_jitter(width = 0.2, size = 1) +
+      labs(title = paste("Cluster", DE_results()$cluster[selected_row], "-", DE_results()$marker[selected_row]),
+           x = "Condition", y = "Mean Expression") +
+      theme_minimal(base_size = 16)
+
+  })
+
+
+  output$down_DE <- downloadHandler(
+    filename = function() {
+       sprintf("DE_%s_%s_pval%s_%s.csv",input$DE_selcluster,input$type_aggr_DE,input$expdes_thresh,Sys.Date())
+    },
+    # This function should write data to a file given to it by the argument 'file'.
+    content = function(file) {
+      write.csv(DE_results(), file, row.names = FALSE)
+    }
+  )
 
 
 

@@ -8,7 +8,7 @@
 #' @import shinyFiles
 #' @importFrom shinyjs useShinyjs
 #' @import waiter
-#' @importFrom shinyWidgets progressBar awesomeRadio pickerOptions pickerInput materialSwitch radioGroupButtons
+#' @importFrom shinyWidgets progressBar awesomeRadio pickerOptions pickerInput materialSwitch radioGroupButtons prettyRadioButtons
 #' @importFrom DT DTOutput
 #' @importFrom shinycssloaders withSpinner
 #' @noRd
@@ -247,8 +247,11 @@ app_ui <- function(request) {
                                         options = pickerOptions(container ="body",actionsBox = TRUE),width = "100%")
 
                           )),
-                        column(3, actionButton("apply_peaco",style ="padding:10px; font-size:110%;", "Apply peacoQC", icon("gear")),
-                        )
+
+                        column(2, offset=1,
+                               div(class = "d-flex align-items-center justify-content-center", style = "height: 100%;",
+                                   actionButton("apply_peaco",style ="padding:10px; font-size:110%;", class = "btn-success btn-lg","Apply peacoQC", icon("gear")))
+                               )
                       )
                     )
 
@@ -505,15 +508,16 @@ app_ui <- function(request) {
               ),
               br(), hr(), br(),
               p("Plot settings"),
-              selectInput("metak_clust", "Number of clusters", choices = c(paste0("meta", 2:20))),
+              conditionalPanel(
+                "output.check_clusterdata == true",
+                selectInput("metak_clust", "Number of clusters", choices = c(paste0("meta", 2:20))),
 
-              selectInput("fun_clust", "Function for the summary statistic", choices = c("median", "mean", "sum")),
-              selectInput("scale_clust", "Scaling strategy", choices = c("scale & trim then aggregate" = "first",
-                                                                         "aggregate then scale & trim" = "last",
-                                                                         "aggregate only" = "never")),
-              checkboxInput("bar_heatmap","Barplot of cell counts per cluster", value = TRUE),
-              checkboxInput("perc_heatmap","Display percentage labels next to bars", value = TRUE)
-
+                selectInput("fun_clust", "Function for the summary statistic", choices = c("median", "mean", "sum")),
+                selectInput("scale_clust", "Scaling strategy", choices = c("scale & trim then aggregate" = "first",
+                                                                           "aggregate only" = "never")),
+                checkboxInput("bar_heatmap","Barplot of cell counts per cluster", value = TRUE),
+                checkboxInput("perc_heatmap","Display percentage labels next to bars", value = TRUE)
+              )
 
             )
           ),
@@ -548,32 +552,69 @@ app_ui <- function(request) {
                       ),
                     br(), hr(), br(),
                     p("Plot settings"),
-                    selectInput("type_pca_plot","Type of dimension reduction to plot", choices = ""),
-                    fluidRow(
-                      column(6,awesomeRadio("typevar_colorpca","Color by (da cambiare nomi)",choices = c("coldata","rowdata"))),
+                    conditionalPanel(
+                      "output.check_pcadata == true",
+                      selectInput("type_pca_plot","Type of dimension reduction to plot", choices = ""),
+                      fluidRow(
+                        column(6,awesomeRadio("typevar_colorpca","Color by (da cambiare nomi)",choices = c("coldata","rowdata"))),
                         column(6, selectInput("var_colorpca", "Color by",choices = ""))
                       ),
                       checkboxInput("scale_pcaplot","Scale data", value = TRUE),
                       selectInput("facet_pcaplot","Facet by",choices = "")
+                    )
 
-                      )
-                    ),
+
+                    )
+                  ),
 
                   column(9, shinycssloaders::withSpinner(type=4,plotOutput("plot_pca", height = "80vh", width = "100%")))
 
                   )
                 ), #end of navpanel
 
-      nav_panel("Custom Gating",
-                fluidPage(
-                  "Qui inserisci UI per gating personalizzato",
-                  uiOutput("gating_ui")
-                )),
 
-      nav_panel("Export",
-                fluidPage(
-                  downloadButton("download_report", "Scarica report")
-                ))
+
+
+
+
+      nav_panel("Differential Expression",
+                fluidRow(
+                  column(
+                    3,
+                    wellPanel(
+                      p("Here you can perform a Dunn's Kruskal-Wallis Multiple Comparisons test to see the significative conditions in each cluster and for each marker."),
+                      selectInput("DE_selcluster","Number of clusters", choices = c(paste0("meta", 2:20))),
+
+                      pickerInput("DE_picker_mark", "Select the markers", choices = c(), multiple = TRUE,
+                                  options = pickerOptions(container ="body",actionsBox = TRUE),width = "100%"),
+
+                      prettyRadioButtons("type_aggr_DE", "How to aggregate data", choices = c("mean", "sum", "num.detected", "prop.detected", "median"), inline = TRUE, selected = "mean"),
+
+
+                      prettyRadioButtons("expdes_thresh", "p-value threshold", choices = c(0.01, 0.05, 0.1), inline = TRUE, selected = 0.05),
+
+                      conditionalPanel(
+                        "output.check_clusterdata == true",
+                        fluidRow(
+                          column(5, actionButton("run_DE", "Run DE!",icon("gear"),style ="padding:10px; font-size:110%;")),
+                          column(7,
+                            conditionalPanel("output.check_DEdata == true",
+                              downloadButton("down_DE", "Download DE results",style ="padding:10px; font-size:110%;", class = "btn-success btn-lg",icon("download")))
+                          )
+                        )
+                      )
+                    )
+                  ),
+
+
+                    column(5,DTOutput("DE_table")),
+                    column(4,shinycssloaders::withSpinner(type=4,plotOutput("DE_boxplot")))
+
+
+                )
+                )#end of navpanel
+
+
     )
 
   ) #end of taglist
