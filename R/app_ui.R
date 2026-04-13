@@ -156,7 +156,7 @@ app_ui <- function(request) {
                              card(card_header("Type of Data"),
                                   radioGroupButtons("type_of_data", "Choose your type of data",
                                                     choices = c("Files from CytOF (.fcs)" = "fcs", "SingleCellExperiment (.rds)" = "sce"),
-                                                    direction = "vertical", individual = TRUE,
+                                                    direction = "vertical", individual = F,justified = T, size = "lg",
                                                     checkIcon = list(
                                                       yes = tags$i(class = "fa fa-circle",
                                                                    style = "color: steelblue"),
@@ -172,7 +172,7 @@ app_ui <- function(request) {
                             "input.type_of_data == 'fcs'",
                             fluidRow(
                               column(
-                                4,
+                                5,
                                 card(
                                   card_header("FCS File Import and Preprocessing"),
                                   "Here you can read your .fcs files into a flowFrame object.
@@ -180,14 +180,17 @@ app_ui <- function(request) {
                             perform filtering and preprocessing steps such as gating and quality control with PeacoQC.")),
                               column(
                                 3,
-                                h4("Select the data folder"),
+                                h5("Select the data folder"),
                                 shinyFiles::shinyDirButton("datafolder",style ="padding:10px; font-size:110%;",
                                                            label = "Browse...", title = "Please select the data folder",
                                                            multiple = FALSE, icon = icon("folder-open"))),
-                              column(3,
-                                     conditionalPanel(
-                                       "output.check_folderdata == true",
-                                       actionButton("readdatabttn",style ="padding:10px; font-size:110%;", "Read Data", icon("gear"))))
+                              column(
+                                3,
+                                conditionalPanel(
+                                  "output.check_folderdata == true",
+                                  div(class = "d-flex align-items-center justify-content-center", style = "height: 100%;",
+                                      actionButton("readdatabttn",style ="padding:10px; font-size:150%;", "Read Data", icon("gear")))
+                                ))
                             )
                           ),
 
@@ -203,7 +206,8 @@ app_ui <- function(request) {
                               column(5,style="display: flex; justify-content: center; align-items: center;",
                                      conditionalPanel(
                                        "output.check_sce_data == true",
-                                       actionButton("go_to_analysis","Go to the Analysis!",icon("rocket"),class = "btn-primary",style ="padding:10px; font-size:150%;"))
+                                       uiOutput("rds_analysis_perf")
+                                       )
                               )
                             )
                           )
@@ -589,8 +593,6 @@ app_ui <- function(request) {
                                   options = pickerOptions(container ="body",actionsBox = TRUE),width = "100%"),
 
                       prettyRadioButtons("type_aggr_DE", "How to aggregate data", choices = c("mean", "sum", "num.detected", "prop.detected", "median"), inline = TRUE, selected = "mean"),
-
-
                       prettyRadioButtons("expdes_thresh", "p-value threshold", choices = c(0.01, 0.05, 0.1), inline = TRUE, selected = 0.05),
 
                       conditionalPanel(
@@ -607,8 +609,8 @@ app_ui <- function(request) {
                   ),
 
 
-                    column(5,DTOutput("DE_table")),
-                    column(4,shinycssloaders::withSpinner(type=4,plotOutput("DE_boxplot")))
+                  column(5,DTOutput("DE_table")),
+                  column(4,shinycssloaders::withSpinner(type=4,plotOutput("DE_boxplot")))
 
 
                 )

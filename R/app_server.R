@@ -18,6 +18,7 @@
 #' @importFrom readxl read_excel
 #' @importFrom scuttle aggregateAcrossCells
 #' @importFrom FSA dunnTest
+#' @importFrom SummarizedExperiment assay
 #' @noRd
 app_server <- function(input, output, session) {
   # Your application server logic
@@ -58,7 +59,7 @@ app_server <- function(input, output, session) {
     w <- Waiter$new(
       html = tagList(
         spin_flower(),
-        h3("Loading SingleCellExperiment into memory...", style = "color:white;"),
+        h3("Loading SingleCellExperiment...", style = "color:white;"),
         p("This may take a while depending on the file size.", style = "color:white;")
       ),
       color = "rgba(0, 0, 0, 0.7)"
@@ -88,6 +89,37 @@ app_server <- function(input, output, session) {
   }, once = TRUE)
 
 
+
+
+  output$rds_analysis_perf <- renderUI({
+    req(sce_data())
+
+
+
+    if("cluster_id" %in% colnames(sce_data()@colData)){
+      icon_cl = icon("circle-check", style = "color: #28a745;")
+    }else{
+      icon_cl = icon("times-circle", style = "color: #d9534f;")
+    }
+    if(length(SingleCellExperiment::reducedDimNames(sce_data()))>0){
+      icon_dr = icon("circle-check", style = "color: #28a745;")
+    }else{
+      icon_dr = icon("times-circle", style = "color: #d9534f;")
+
+    }
+
+    card(
+      class = "bg-primary",
+      style= "width: 70%;",
+      card_header("Details of the SingleCellExperiment loaded"),
+      card_body(
+        div(style="font-size: 1.5rem;",class = "d-flex justify-content-between align-items-center",
+            "Clustering", icon_cl),
+        div(style="font-size: 1.5rem;",class = "d-flex justify-content-between align-items-center",
+            "Dimension Reduction", icon_dr)
+      )
+    )
+  })
 
 
 
@@ -1021,7 +1053,7 @@ app_server <- function(input, output, session) {
 
         for (marker_to_check in input$DE_picker_mark) {
           df_sub <- data.frame(
-            expr = assay(agg, "exprs")[marker_to_check, ],
+            expr = SummarizedExperiment::assay(agg, "exprs")[marker_to_check, ],
             group = sce1$condition[match(colnames(agg), sce1$sample_id)]
           )
 
@@ -1088,7 +1120,7 @@ app_server <- function(input, output, session) {
       escape = FALSE,
       selection = "single", # Permette di selezionare una sola riga alla volta
       rownames = FALSE,
-      caption = 'Significative comparisons',
+      caption = 'Significative comparisons.',
       options = list(dom = 'tp', pageLength = 10,scrollX = TRUE) # 't' nasconde la barra di ricerca per pulizia
     )
   },server=T)
@@ -1111,7 +1143,7 @@ app_server <- function(input, output, session) {
                                          use.assay.type = "exprs",
                                          statistics = input$type_aggr_DE)
     df_sub <- data.frame(
-      expr = assay(agg, "exprs")[DE_results()$marker[selected_row],],
+      expr = SummarizedExperiment::assay(agg, "exprs")[DE_results()$marker[selected_row],],
       group = sce1$condition[match(colnames(agg), sce1$sample_id)]
     )
 
