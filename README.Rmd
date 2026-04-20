@@ -13,10 +13,14 @@ output: github_document
 )
 ```
 
-# `{CYTOGLO}`
+
+# CYTOGLO <img src="inst/app/www/CYTOGLO_icon.png" align="right" height="139"/>
+
+CYTOGLO (CYTOmetry Gating & LOgical post-processsing) is a novel shiny app for the elaboration of the CytOF files. From the raw .fcs files is it possibile to apply a PeacoQC filtering, a customized gating and include panel files and metadata files in order to create a final SingleCellExperiment object. From this object you can perform clustering, dimensionality reduction and differential expression analysis.
 
 <!-- badges: start -->
-[![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
+[![Lifecycle: stable](https://img.shields.io/badge/lifecycle-stable-succes.svg)](https://lifecycle.r-lib.org/articles/stages.html#stable)
+[![R-CMD-check](https://github.com/ShinyFabio/CYTOGLO/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/ShinyFabio/CYTOGLO/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
 ## Installation
@@ -24,7 +28,7 @@ output: github_document
 You can install the development version of `{CYTOGLO}` like so:
 
 ```{r}
-# FILL THIS IN! HOW CAN PEOPLE INSTALL YOUR DEV PACKAGE?
+devtools::install_github("ShinyFabio/CYTOGLO")
 ```
 
 ## Run
@@ -35,26 +39,4 @@ You can launch the application by running:
 CYTOGLO::run_app()
 ```
 
-## About
 
-You are reading the doc about version : `r golem::pkg_version()`
-
-This README has been compiled on the
-
-```{r}
-Sys.time()
-```
-
-Here are the tests results and package coverage:
-
-```{r, error = TRUE}
-devtools::check(quiet = TRUE)
-```
-
-```{r echo = FALSE}
-unloadNamespace("CYTOGLO")
-```
-
-```{r, error = TRUE}
-covr::package_coverage()
-```

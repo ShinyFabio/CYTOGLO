@@ -7,8 +7,7 @@
 #' @param duration Number of seconds to display the message before it disappears. Use NULL to make the message not automatically disappear.
 #'
 #'
-#' @importFrom shiny isRunning showNotification
-#' @importFrom htmltools HTML
+#' @importFrom shiny isRunning showNotification HTML
 #'
 
 #in alternativa provare con toast di bslib

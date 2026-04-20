@@ -95,7 +95,7 @@ app_ui <- function(request) {
         Shiny.setInputValue('wizard_step', currentIdx + 1);
       }
 
-      // Intercetta il CLICK (su mousedown è ancora più veloce)
+      // Intercetta il CLICK (su mousedown e' ancora più veloce)
       $(document).on('mousedown', '.next-screen', function() {
         if (!$(this).hasClass('disabled')) updateInstant('next');
       });
@@ -116,7 +116,11 @@ app_ui <- function(request) {
     golem_add_external_resources(),
     # Your application UI logic
     page_navbar(
-      title = "CYTOGLO",
+      title = span(
+        img(src = "www/CYTOGLO_icon.png", height = "35px", style = "margin-right: 10px; vertical-align: middle;"),
+        "CYTOGLO"
+      ),
+      # title = "CYTOGLO",
       theme = bs_theme(
         version = 5,
         bootswatch = "flatly",
@@ -637,7 +641,7 @@ golem_add_external_resources <- function() {
   )
 
   tags$head(
-    favicon(),
+    favicon(ext = 'png'),
     bundle_resources(
       path = app_sys("app/www"),
       app_title = "CYTOGLO"
