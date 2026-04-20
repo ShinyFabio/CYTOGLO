@@ -17,7 +17,7 @@
 #' @return A ggplot or ggcyto object.
 #'
 #' @import ggplot2
-#' @import ggcyto
+#' @importFrom ggcyto geom_gate geom_stats
 #' @import openCyto
 #' @importFrom flowCore rectangleGate
 #'
@@ -77,7 +77,7 @@ build_gating_plot <- function(sample, n_vars, var_x, var_y, gating_type,
         labs(title = "Sample post-gating")
 
     }else{
-      p <- autoplot(sample, x = var_x, y = var_y, bins = 100,max_nrow_to_plot = Inf) + geom_gate(g) + geom_stats() +
+      p <- autoplot(sample, x = var_x, y = var_y, bins = 100,max_nrow_to_plot = Inf) + ggcyto::geom_gate(g) + ggcyto::geom_stats() +
         labs(title = "Sample pre-gating")
     }
   }

@@ -9,7 +9,7 @@
 #' @importFrom flowCore read.FCS Subset write.FCS flowSet keyword rectangleGate
 #' @importFrom PeacoQC PeacoQC
 #' @importFrom fs path_home
-#' @import ggcyto
+#' @importFrom ggcyto geom_gate geom_stats
 #' @import openCyto
 #' @import ggplot2
 #' @importFrom shinyWidgets updatePickerInput show_alert
