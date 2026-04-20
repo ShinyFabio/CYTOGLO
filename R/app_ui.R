@@ -11,6 +11,7 @@
 #' @importFrom shinyWidgets progressBar awesomeRadio pickerOptions pickerInput materialSwitch radioGroupButtons prettyRadioButtons
 #' @importFrom DT DTOutput
 #' @importFrom shinycssloaders withSpinner
+#' @importFrom jsonlite toJSON
 #' @noRd
 
 titles <- c("Step 1. Read data", "Step 2. Pre-filtering", "Step 3. Apply Gating","Step 4. Save data")
@@ -95,7 +96,7 @@ app_ui <- function(request) {
         Shiny.setInputValue('wizard_step', currentIdx + 1);
       }
 
-      // Intercetta il CLICK (su mousedown e' ancora più veloce)
+      // Intercetta il CLICK (su mousedown e' ancora piu veloce)
       $(document).on('mousedown', '.next-screen', function() {
         if (!$(this).hasClass('disabled')) updateInstant('next');
       });
@@ -345,18 +346,13 @@ app_ui <- function(request) {
                             # lasciando esattamente 80px al centro per la freccia.
                             style = "display: grid; grid-template-columns: 1fr 80px 1fr; align-items: center; gap: 15px;",
 
-                            # Contenitore Plot 1 (prenderà il primo 1fr)
                             div(
                               plotOutput("plot_gating_before", height = "500px")
                             ),
-
-                            # Contenitore Freccia al centro (prenderà gli 80px)
                             div(
                               class = "d-flex align-items-center justify-content-center",
                               icon("right-long", style = "font-size: 55px; color:#1f77b4;")
                             ),
-
-                            # Contenitore Plot 2 (prenderà il secondo 1fr)
                             div(
                               shinycssloaders::withSpinner(type=4,plotOutput("plot_gating", height = "500px"))
                             )
@@ -412,7 +408,7 @@ app_ui <- function(request) {
                                 label = tags$span(
                                   "Panel file (.csv or .xlsx) ",
                                   tags$span(
-                                    # Questo blocca il click: non aprirà il selettore file se clicchi l'icona
+                                    # Questo blocca il click: non aprira il selettore file se clicchi l'icona
                                     onclick = "event.preventDefault();",
                                     popover(
                                       # 1. Il Trigger (l'icona) deve essere esplicitamente il primo argomento
@@ -433,7 +429,7 @@ app_ui <- function(request) {
                                 label = tags$span(
                                   "Metadata file (.csv or .xlsx) ",
                                   tags$span(
-                                    # Questo blocca il click: non aprirà il selettore file se clicchi l'icona
+                                    # Questo blocca il click: non aprira il selettore file se clicchi l'icona
                                     onclick = "event.preventDefault();",
                                     popover(
                                       # 1. Il Trigger (l'icona) deve essere esplicitamente il primo argomento

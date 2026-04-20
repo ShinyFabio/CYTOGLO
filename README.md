@@ -15,6 +15,7 @@ analysis.
 
 [![Lifecycle:
 stable](https://img.shields.io/badge/lifecycle-stable-succes.svg)](https://lifecycle.r-lib.org/articles/stages.html#stable)
+[![R-CMD-check](https://github.com/ShinyFabio/CYTOGLO/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/ShinyFabio/CYTOGLO/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
 ## Installation

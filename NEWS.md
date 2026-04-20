@@ -1,3 +1,4 @@
-# CYTOGLO (development version)
+# CYTOGLO 1.0.0
 
-* Initial CRAN submission.
+* Initial release of the CYTOGLO package.
+

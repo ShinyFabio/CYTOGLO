@@ -27,7 +27,10 @@ Imports:
     FSA,
     scuttle,
     SummarizedExperiment,
-    ggplot2
+    ggplot2,
+    dplyr,
+    jsonlite,
+    SingleCellExperiment
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.3.3

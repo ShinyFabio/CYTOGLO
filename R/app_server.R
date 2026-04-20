@@ -6,7 +6,7 @@
 #' @import shinyFiles
 #' @importFrom shinyjs enable disable
 #' @import waiter
-#' @importFrom flowCore read.FCS Subset write.FCS flowSet keyword
+#' @importFrom flowCore read.FCS Subset write.FCS flowSet keyword rectangleGate
 #' @importFrom PeacoQC PeacoQC
 #' @importFrom fs path_home
 #' @import ggcyto
@@ -19,6 +19,9 @@
 #' @importFrom scuttle aggregateAcrossCells
 #' @importFrom FSA dunnTest
 #' @importFrom SummarizedExperiment assay
+#' @importFrom SingleCellExperiment reducedDimNames
+#' @importFrom stats density kruskal.test quantile setNames
+#' @importFrom utils read.csv write.csv write.table
 #' @noRd
 app_server <- function(input, output, session) {
   # Your application server logic
@@ -536,13 +539,18 @@ app_server <- function(input, output, session) {
       req(input$second_var_gat)
       if (input$type_gating == "Rectangular") {
         req(input$slider_x_gat, input$slider_y_gat)
-        g <- openCyto:::.boundary(step1_sample(),
-                                  channels = c(input$first_var_gat, input$second_var_gat),
-                                  min = c(min(input$slider_x_gat), min(input$slider_y_gat)),
-                                  max = c(max(input$slider_x_gat), max(input$slider_y_gat)))
+        # g <- openCyto:::.boundary(step1_sample(),
+        #                           channels = c(input$first_var_gat, input$second_var_gat),
+        #                           min = c(min(input$slider_x_gat), min(input$slider_y_gat)),
+        #                           max = c(max(input$slider_x_gat), max(input$slider_y_gat)))
+
+        g <- flowCore::rectangleGate(setNames(list(c(min(input$slider_x_gat), max(input$slider_x_gat)),c(min(input$slider_y_gat), max(input$slider_y_gat))),
+                                              c(input$first_var_gat, input$second_var_gat)))
+
+
       } else {
         req(input$slider_ellipse_gat)
-        g <- openCyto:::gate_flowclust_2d(step1_sample(), xChannel = input$first_var_gat,
+        g <- openCyto::gate_flowclust_2d(step1_sample(), xChannel = input$first_var_gat,
                                           yChannel = input$second_var_gat, K = 1,
                                           quantile = input$slider_ellipse_gat)
       }

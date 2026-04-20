@@ -19,6 +19,7 @@
 #' @import ggplot2
 #' @import ggcyto
 #' @import openCyto
+#' @importFrom flowCore rectangleGate
 #'
 
 # Funzione helper interna al server (o fuori)
@@ -60,11 +61,14 @@ build_gating_plot <- function(sample, n_vars, var_x, var_y, gating_type,
   }else{
     # --- LOGICA 2 VARIABILI ---
     if(gating_type == "Rectangular") {
-      g <- openCyto:::.boundary(sample, channels = c(var_x, var_y),
-                                min = c(min(slider_x), min(slider_y)),
-                                max = c(max(slider_x), max(slider_y)))
+      # g <- openCyto:::.boundary(sample, channels = c(var_x, var_y),
+      #                           min = c(min(slider_x), min(slider_y)),
+      #                           max = c(max(slider_x), max(slider_y)))
+      g <- flowCore::rectangleGate(setNames(list(c(min(slider_x), max(slider_x)),c(min(slider_y), max(slider_y))),
+                                            c(var_x, var_y)))
+
     } else {
-      g <- openCyto:::gate_flowclust_2d(sample, xChannel = var_x, yChannel = var_y, K = 1, quantile = ellipse_val)
+      g <- openCyto::gate_flowclust_2d(sample, xChannel = var_x, yChannel = var_y, K = 1, quantile = ellipse_val)
     }
 
 
