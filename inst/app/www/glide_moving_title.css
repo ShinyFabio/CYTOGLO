@@ -1,0 +1,32 @@
+.title-clipper {
+  width: 100%;
+  overflow: hidden;
+  height: 40px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#screen_title {
+  display: inline-block;
+  font-weight: bold;
+  font-size: 1.3em;
+  white-space: nowrap;
+  /* La durata deve essere identica a quella di Glide (default 400ms) */
+  animation-duration: 0.4s;
+  animation-fill-mode: both;
+  animation-timing-function: cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+@keyframes slideNext {
+  0% { transform: translateX(50px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slidePrev {
+  0% { transform: translateX(-50px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+.animate-next { animation-name: slideNext; }
+.animate-prev { animation-name: slidePrev; }

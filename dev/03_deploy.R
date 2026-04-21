@@ -27,7 +27,7 @@ devtools::build()
 
 ## Docker ----
 ## If you want to deploy via a generic Dockerfile
-golem::add_dockerfile_with_renv()
+golem::add_dockerfile_with_renv(output_dir = "deploy")
 ## If you want to deploy to ShinyProxy
 golem::add_dockerfile_with_renv_shinyproxy()
 

@@ -14,103 +14,25 @@
 #' @importFrom jsonlite toJSON
 #' @noRd
 
-titles <- c("Step 1. Read data", "Step 2. Pre-filtering", "Step 3. Apply Gating","Step 4. Save data")
 
 app_ui <- function(request) {
   tagList(
     # Aumenta il limite a 2 GB
 
-    #serve per disabilitare i tasti quando vengono premuti
-    shinyjs::useShinyjs(),
-
-    use_waiter(), # OBBLIGATORIO: inizializza waiter nella UI
-
-    tags$head(
-      tags$style(HTML("
-      .title-clipper {
-        width: 100%;
-        overflow: hidden;
-        height: 40px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-      }
-
-      #screen_title {
-        display: inline-block;
-        font-weight: bold;
-        font-size: 1.3em;
-        white-space: nowrap;
-        /* La durata deve essere identica a quella di Glide (default 400ms) */
-        animation-duration: 0.4s;
-        animation-fill-mode: both;
-        animation-timing-function: cubic-bezier(0.165, 0.84, 0.44, 1);
-      }
-
-      @keyframes slideNext {
-        0% { transform: translateX(50px); opacity: 0; }
-        100% { transform: translateX(0); opacity: 1; }
-      }
-
-      @keyframes slidePrev {
-        0% { transform: translateX(-50px); opacity: 0; }
-        100% { transform: translateX(0); opacity: 1; }
-      }
-
-      .animate-next { animation-name: slideNext; }
-      .animate-prev { animation-name: slidePrev; }
-    "))
-    ),
-
-    tags$script(HTML(sprintf("
-    var titles = %s;
-    var currentIdx = 0;
-
-    $(document).on('shiny:connected', function() {
-
-      function updateInstant(direction) {
-        var nextIdx = currentIdx;
-
-        if (direction === 'next' && currentIdx < titles.length - 1) {
-          nextIdx++;
-        } else if (direction === 'prev' && currentIdx > 0) {
-          nextIdx--;
-        } else {
-          return; // Nessun movimento se ai bordi
-        }
-
-        var $title = $('#screen_title');
-        var animClass = (direction === 'next') ? 'animate-next' : 'animate-prev';
-
-        // 1. Cambia il testo istantaneamente
-        $title.text(titles[nextIdx]);
-
-        // 2. Riavvia l'animazione
-        $title.removeClass('animate-next animate-prev');
-        $title[0].offsetWidth; // Reset CSS
-        $title.addClass(animClass);
-
-        currentIdx = nextIdx;
-
-        // Comunica l'indice a Shiny (opzionale, per logica server)
-        Shiny.setInputValue('wizard_step', currentIdx + 1);
-      }
-
-      // Intercetta il CLICK (su mousedown e' ancora piu veloce)
-      $(document).on('mousedown', '.next-screen', function() {
-        if (!$(this).hasClass('disabled')) updateInstant('next');
-      });
-      $(document).on('mousedown', '.prev-screen', function() {
-        if (!$(this).hasClass('disabled')) updateInstant('prev');
-      });
-
-      // Intercetta la TASTIERA
-      $(document).on('keydown', function(e) {
-        if (e.key === 'ArrowRight') updateInstant('next');
-        if (e.key === 'ArrowLeft') updateInstant('prev');
-      });
-    });
-  ", jsonlite::toJSON(titles)))),
+    # #serve per disabilitare i tasti quando vengono premuti
+    # shinyjs::useShinyjs(),
+    #
+    # use_waiter(), # OBBLIGATORIO: inizializza waiter nella UI
+    # tags$head(
+    #   # 1. Carica il CSS
+    #   tags$link(rel = "stylesheet", type = "text/css", href = "custom_style.css"),
+    #
+    #   # 2. Passa la variabile R 'titles' a JavaScript
+    #   tags$script(HTML(sprintf("var titles = %s;", jsonlite::toJSON(titles)))),
+    #
+    #   # 3. Carica il file JavaScript esterno
+    #   tags$script(src = "custom_script.js")
+    # ),
 
 
     # Leave this function for adding external resources
@@ -636,12 +558,30 @@ golem_add_external_resources <- function() {
     app_sys("app/www")
   )
 
+  titles <- c("Step 1. Read data", "Step 2. Pre-filtering", "Step 3. Apply Gating","Step 4. Save data")
+
   tags$head(
     favicon(ext = 'png'),
     bundle_resources(
       path = app_sys("app/www"),
       app_title = "CYTOGLO"
-    )
+    ),
+
+    #serve per disabilitare i tasti quando vengono premuti
+    shinyjs::useShinyjs(),
+
+    use_waiter(), # OBBLIGATORIO: inizializza waiter nella UI
+
+    # 1. Carica il CSS
+    tags$link(rel = "stylesheet", type = "text/css", href = "glide_moving_title.css"),
+
+    # 2. Passa la variabile R 'titles' a JavaScript
+    tags$script(HTML(sprintf("var titles = %s;", jsonlite::toJSON(titles)))),
+
+    # 3. Carica il file JavaScript esterno
+    tags$script(src = "glide_moving_title.js")
+
+
     # Add here other external resources
     # for example, you can add shinyalert::useShinyalert()
   )
