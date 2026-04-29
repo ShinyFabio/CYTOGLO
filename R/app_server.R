@@ -26,6 +26,7 @@
 app_server <- function(input, output, session) {
   # Your application server logic
 
+  # Aumenta il limite a 2 GB
   options(shiny.maxRequestSize = 2000 * 1024^2)
 
 
@@ -1034,7 +1035,7 @@ app_server <- function(input, output, session) {
 
   observeEvent(sce_data(),{
 
-    updatePickerInput(session, "DE_picker_mark",choices = CATALYST::state_markers(sce_data()),selected = CATALYST::state_markers(sce_data()))
+    updatePickerInput(session, "DE_picker_mark",choices = sort(CATALYST::state_markers(sce_data())),selected = sort(CATALYST::state_markers(sce_data())))
   })
 
 
@@ -1051,7 +1052,7 @@ app_server <- function(input, output, session) {
     percentage <- 0
      withProgress(message = "Computing Dunn's Test...", value=0, {
       for (cl in clusters) {
-        sce1 <- filterSCE(sce_data(), cluster_id %in% cl, k = input$DE_selcluster)
+        sce1 <- CATALYST::filterSCE(sce_data(), cluster_id %in% cl, k = input$DE_selcluster)
 
         agg <- scuttle::aggregateAcrossCells(sce1,
                                              subset.row = input$DE_picker_mark,
@@ -1224,7 +1225,7 @@ app_server <- function(input, output, session) {
     }
   })
 
-  observeEvent(input$confirm_cluster, {
+  observeEvent(input$confirm_pca, {
     req(sce_data())
     removeModal()
     run_pca_impl()
@@ -1268,19 +1269,29 @@ app_server <- function(input, output, session) {
     }
   )
 
-  observeEvent(sce_data(),{
+  observe({
     req(sce_data())
     if(length(SingleCellExperiment::reducedDimNames(sce_data()))>0){
       updateSelectInput(session, "type_pca_plot",choices = SingleCellExperiment::reducedDimNames(sce_data()))
     }
-    if(input$typevar_colorpca == "coldata"){
-      updateSelectInput(session, "var_colorpca", choices= colnames(sce_data()@colData))
-    }else{
-      updateSelectInput(session, "var_colorpca", choices= rownames(sce))
+    updateSelectInput(session, "facet_pcaplot", choices= c("None", setdiff(colnames(colData(sce_data())), "cluster_id")))
+  })
+
+
+  output$picker_color_pca <- renderUI({
+    req(sce_data())
+
+    if (input$typevar_colorpca == "cluster") {
+      selectInput("var_colorpca", label = "Color by", choices = paste0("meta", 2:20), multiple = FALSE)
+    } else if (input$typevar_colorpca == "coldata") {
+      selectInput("var_colorpca", label = "Color by", choices = setdiff(colnames(colData(sce_data())), "cluster_id"), multiple = FALSE)
+    } else {
+      selectInput("var_colorpca", label = "Color by", choices = sort(CATALYST::state_markers(sce_data())), multiple = TRUE)
     }
-    updateSelectInput(session, "facet_pcaplot", choices= c("None", colnames(sce_data()@colData)))
 
   })
+
+
 
   output$plot_pca = renderPlot({
     req(sce_data(),input$facet_pcaplot,input$type_pca_plot,input$var_colorpca)

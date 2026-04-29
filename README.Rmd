@@ -39,4 +39,14 @@ You can launch the application by running:
 CYTOGLO::run_app()
 ```
 
+## Authors & Contributors
+CYTOGLO was designed and envisioned by the following authors:
 
+Fabio Della Rocca – Main Developer & Maintainer (aut, cre)
+
+Olga Lanzetta – Main Developer & Data Contributor (aut, dtc)
+
+Claudia Angelini – Supervision & Design (aut, rev)
+
+## Funding
+This work was supported by the project “MIGLIORA” – “Misurazione delle Immunoglobuline a Domicilio: monitoraggio per l’Ottimizzazione dei Protocolli diagnostici e Terapeutici in pazienti con CVID mediante l’uso di nuovi dispositivi domiciliari e Intelligenza Artificiale” (Progetto ID 237).

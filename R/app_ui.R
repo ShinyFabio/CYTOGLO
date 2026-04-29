@@ -17,26 +17,10 @@
 
 app_ui <- function(request) {
   tagList(
-    # Aumenta il limite a 2 GB
-
-    # #serve per disabilitare i tasti quando vengono premuti
-    # shinyjs::useShinyjs(),
-    #
-    # use_waiter(), # OBBLIGATORIO: inizializza waiter nella UI
-    # tags$head(
-    #   # 1. Carica il CSS
-    #   tags$link(rel = "stylesheet", type = "text/css", href = "custom_style.css"),
-    #
-    #   # 2. Passa la variabile R 'titles' a JavaScript
-    #   tags$script(HTML(sprintf("var titles = %s;", jsonlite::toJSON(titles)))),
-    #
-    #   # 3. Carica il file JavaScript esterno
-    #   tags$script(src = "custom_script.js")
-    # ),
-
 
     # Leave this function for adding external resources
     golem_add_external_resources(),
+
     # Your application UI logic
     page_navbar(
       title = span(
@@ -482,8 +466,8 @@ app_ui <- function(request) {
                       "output.check_pcadata == true",
                       selectInput("type_pca_plot","Type of dimension reduction to plot", choices = ""),
                       fluidRow(
-                        column(6,awesomeRadio("typevar_colorpca","Color by (da cambiare nomi)",choices = c("coldata","rowdata"))),
-                        column(6, selectInput("var_colorpca", "Color by",choices = ""))
+                        column(6,awesomeRadio("typevar_colorpca","Color on",choices = c("cluster","marker","coldata"))),
+                        column(6, uiOutput("picker_color_pca"))
                       ),
                       checkboxInput("scale_pcaplot","Scale data", value = TRUE),
                       selectInput("facet_pcaplot","Facet by",choices = "")

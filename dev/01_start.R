@@ -21,12 +21,14 @@
 golem::fill_desc(
   pkg_name = "CYTOGLO", # The name of the golem package containing the app (typically lowercase, no underscore or periods)
   pkg_title = "CYTOmetry Gating & LOgical post-processsing", # What the Package Does (One Line, Title Case, No Period)
-  pkg_description = "PKG_DESC.", # What the package does (one paragraph).
-  authors = person(
-    given = "Fabio", # Your First Name
-    family = "Della Rocca", # Your Last Name
-    email = "f.dellarocca@na.iac.cnr.it", # Your email
-    role = c("aut", "cre") # Your role (here author/creator)
+  pkg_description = "CYTOGLO (CYTOmetry Gating & LOgical post-processsing) is a novel shiny app for the elaboration of the CytOF files.
+  From the raw .fcs files is it possibile to apply a PeacoQC filtering, a customized gating and include panel files and metadata files in order
+  to create a final SingleCellExperiment object. From this object you can perform clustering, dimensionality reduction and differential expression analysis.",
+  authors = c(
+    person(given = "Fabio",  family = "Della Rocca",  email = "f.dellarocca@na.iac.cnr.it", role = c("aut", "cre")),
+    person(given = "Olga",family = "Lanzetta", email = "o.lanzetta91@gmail.com",role = c("aut","dtc")),
+    person(given = "Cladia",family = "Angelini", email = "claudia.angelini@cnr.it",role = c("aut","rev"))
+
   ),
   repo_url = NULL, # The URL of the GitHub repo (optional),
   pkg_version = "1.0.0", # The version of the package containing the app
